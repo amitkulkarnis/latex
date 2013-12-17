@@ -1,0 +1,4 @@
+latex
+=====
+
+Latex base setup

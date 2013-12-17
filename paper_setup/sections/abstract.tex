@@ -1,0 +1,437 @@
+
+\section{Inleiding}
+In dit practicum zullen we {\em opnieuw} kennis maken met de FPGA 
+({\em Field Programmable Gate Array}). Een FPGA werd reeds gebruikt in de 
+oefeningen van het opleidingsonderdeel ``Digitale Elektronica'', waar de programmering 
+gebeurde op logisch niveau (cfr.\ het model van Gajski). In deze oefening 
+is het de bedoeling VHDL-code te schrijven op {\em Register-Transferniveau}
+(RT-niveau). 
+
+Het doel van deze oefening, die over twee sessies loopt, is:
+\begin{itemize}
+\item het programmeren in VHDL op te frissen en ontwerptechnieken op RT-niveau te leren 
+toepassen, 
+\item door een een\-vou\-dig algoritme op ver\-schil\-len\-de ma\-nie\-ren te 
+im\-ple\-men\-te\-ren een inzicht te verwerven in de flexibiliteit van een FPGA, en
+\item een link te leggen tussen digitaal ontwerp in VHDL en mechatronica.
+\end{itemize}
+
+\section{Opgave}
+
+Als illustratie zullen we een PI-regelaar in discrete tijd
+implementeren.  Het PI-regelalgoritme werkt als volgt:
+
+Initialisatie:
+
+$$O_1 = 0$$
+$$F_1 = K_s \cdot K_i$$
+$$C = K_s \cdot K_p$$
+
+In regime:
+
+$$Error = SP - PV$$
+$$O_1 = OldO_1 + Error$$
+$$MV = (F1 \cdot O1 + C \cdot Error)$$
+
+De discrete regelparameters ($C$ en $F_1$) zijn afgeleid van de
+klassieke parameters $K_s$, $K_p$ en $K_i$.  Register $O_1$ fungeert
+als integrator, $OldO_1$ is de vorige waarde van $O_1$.  Verder heeft
+de regelaar ingangen $SP$ (set point, wenswaarde) en $PV$ (process
+value, proceswaarde).  De uitgang van de regelaar is $MV$ (manipulated
+variable).
+
+Voor deze practica maken we gebruik van Aldec Active-HDL voor
+simulatie.  Wie dat wenst kan gebruik maken van Sigasi HDT voor het
+editeren van VHDL. Een licentiesleutel voor gebruik in de PC-klassen
+is beschikbaar op minerva, wie HDT op een priv\'e PC of laptop wil
+installeren moet zelf een studentenlicentie aanvragen op {\tt
+www.sigasi.com} .  Uitleg over het gebruik van deze pakketten vind je
+in het appendix.
+
+
+\subsection{Combinatorische implementatie}
+{\em Voorziene tijd: 10 minuten} \\
+{\em Map: opgave1}
+
+De eerste implementatie van het PI-algortime is puur combinatorisch
+(figuur \ref{comb}).  De VHDL-code voor dit onderdeel krijg je
+cadeau. Bestudeer de code en schenk de nodige aandacht aan o.a.\
+typeconversies en het aantal bits waarmee de diverse waarden
+voorgesteld worden.  Wat zou er aan de code veranderen mocht je een
+proces willen gebruiken i.p.v.\ concurrente assignaties?  Welke
+signalen zouden er in de sensitiviteitslijst voorkomen? Niet
+implementeren, alleen de belangrijkste zaken vermelden.
+
+%% \begin{figure}[htb]
+%% \begin{center}
+%% \epsfxsize=8cm
+%% \epsfbox{picomb.eps}
+%% \caption{PI-regelaar: combinatorisch}
+%% \label{comb}
+%% \end{center}
+%% \end{figure}
+
+\subsection{Combinatorisch, met registers}
+{\em Voorziene tijd: 20 minuten} \\
+{\em Map: opgave2}
+
+In de tweede implementatie worden registers (flip-flops) toegevoegd
+v\'o\'or en na de berekening, zoals in figuur \ref{buff}.
+
+%% \begin{figure}[htb]
+%% \begin{center}
+%% \epsfxsize=10cm
+%% \epsfbox{pibuf.eps}
+%% \caption{PI-regelaar: combinatorisch, met registers}
+%% \label{buff}
+%% \end{center}
+%% \end{figure}
+
+Kopieer de VHDL-code uit het vorige onderdeel. Pas de code aan zodat
+ze overeenkomt met het schema uit figuur \ref{buff}. Voorzie alle
+registers van een synchrone reset.  Waarom worden er twee flipflops
+geplaatst tussen start en ready?
+
+Simuleer je code met ActiveHDL. Hoe groot is de latentie (aantal
+klokcycli dat de {\em berekening} duurt, m.a.w.\ vanaf de uitgang van
+de ingangsregisters tot de uitgang van het resultaat-register)?
+
+\subsection{Gepijplijnd}
+{\em Voorziene tijd: 20 minuten} \\
+{\em Map: opgave3}
+
+Een volgende implementatie bestaat uit het pijplijnen van het vorige
+ontwerp.  Op een aantal plaatsen worden registers ingevoerd (zie
+figuur \ref{pipe}).  Het {\em kritisch pad} zal nu korter zijn zodat
+de kloksnelheid hoger kan, anderzijds duurt de berekening nu meerdere
+klokcycli. Merk tevens op dat een aantal ingangen niet van een
+register voorzien zijn, we doen dit omdat we veronderstellen dat die
+ingangen niet veranderen tijdens de berekening.
+
+%% \begin{figure}[hbt]
+%% \begin{center}
+%% \epsfxsize=12cm
+%% \epsfbox{pipipe.eps}
+%% \caption{Gepijplijnde PI-regelaar}
+%% \label{pipe}
+%% \end{center}
+%% \end{figure}
+
+Kopieer je VHDL-code uit de vorige opgave, en maak de nodige
+uitbreidingen.  Let op i.v.m.\ de correctheid van het {\em
+ready}-signaal.  Simuleer de schakeling met ActiveHDL en noteer de
+latentie.
+
+\subsection{Inwendig register voor $O_1$}
+\label{sec:opgave_oint}
+{\em Voorziene tijd: 20 minuten} \\
+{\em Map: opgave4}
+
+%% \begin{figure}[hbt]
+%% \begin{center}
+%% \epsfxsize=12cm
+%% \epsfbox{pioint.eps}
+%% \caption{PI-regelaar: $O_1$-register in de schakeling opgenomen}
+%% \label{o1int}
+%% \end{center}
+%% \end{figure}
+
+In het PI-algoritme is $OldO_1$ telkens de waarde die in de vorige
+tijdstap berekend werd voor $O_1$. Het lijkt dan ook logisch $O_1$ te
+implementeren als een intern register zoals in figuur \ref{o1int}. Een
+multiplexer (mux) zorgt ervoor dat een nieuwe waarde in het register
+geschreven wordt wanneer de controle-ingang van de mux '1' is; als het
+controle- signaal '0' is wordt de oude waarde opnieuw geschreven
+m.a.w. het register behoudt zijn waarde.
+
+Kopieer opnieuw uw VHDL-code van het vorige onderdeel en maak de
+nodige aanpassingen.  De mux wordt gecontroleerd door een signaal dat
+afgeleid is van het start-signaal: zorg voor de correcte vertraging
+zodat de waarde van $O_1$ in het register opgeslagen wordt.
+
+
+\subsection{Datapad en gemicroprogrammeerde controle-automaat}
+\label{datapadsexy}
+{\em Voorziene tijd: 70 minuten} \\
+{\em Map: opgave5}
+
+In de vorige onderdelen werd voor elke bewerking aparte hardware
+ge\-\"{\i}n\-stan\-tieerd.  Voor niet al te ingewikkelde berekeningen
+waar snelheid primordiaal is, kan dit een goede aanpak zijn. Voor
+berekeningen die niet zeer tijdskritisch zijn komt deze aanpak neer op
+een verkwisting van beschikbare hardware, en voor complexe
+berekeningen treedt het fenomeen van {\em combinatorische explosie}
+op: de schakeling wordt snel enorm groot.
+
+%% \begin{figure}[hbtp]
+%% \begin{center}
+%% \epsfxsize=12cm
+%% \epsfbox{datapath.eps}
+%% \caption{PI-regelaar: datapad}
+%% \label{datapad}
+%% \end{center}
+%% \end{figure}
+
+Om dit op te lossen kan men gebruik maken van een datapad met een
+beperkte hoeveelheid rekeneenheden, in combinatie met een
+controle-automaat om dat datapad te besturen. Het datapad bestaat uit
+een {\em relatief beperkt} aantal rekeneenheden, aangevuld met
+registers om (tussen)resultaten bij te houden. Multiplexers in het
+datapad zorgen ervoor dat gegevens tussen de rekeneenheden en de
+registers doorgegeven worden (zie ook cursussen computerarchitectuur).
+
+Voor deze opgave beperken we het datapad tot \'e\'en aftrekker,
+\'e\'en vermenigvuldiger en \'e\'en opteller. Het datapad ziet er dan
+uit zoals in figuur \ref{datapad}; de signalen {\tt K1} tot {\tt K4}
+zijn controlepunten die aangestuurd worden de controle-automaat.
+Tabel \ref{microsingle} beschrijft het verloop van de berekening.
+
+\begin{table}
+\caption{Werking van toestandsmachine en datapad
+\label{microsingle}
+}
+{\tiny
+\begin{tabular}{c c c c c }
+Klokcyclus & Aftrekker & Opteller & Vermenigvuldiger & Resultaat \\
+\hline
+0 \\
+1  & $Error=SP-PV$ \\
+2  & & $O1=OldO1+Error$ & $A1=C*Error$\\
+3  & &                  & $A1=F1*O1$      \\
+4  & & $MV=A1+A2      $ & &  \\
+5  & &                  & & Klaar! \\
+
+\end{tabular}
+}
+\end{table}
+
+
+Vul de VHDL-code van het datapad aan. De controle-automaat en de
+microcode-tabel zijn reeds ingevuld. Controleer de correctheid van het
+datapad door het geheel te simuleren met ActiveHDL.  Hoeveel bedraagt
+de latentie nu?
+
+\subsection{Datapad en Moore-controle-automaat}
+{\em Voorziene tijd: 70 minuten} \\
+{\em Map: opgave6}
+
+In de vijfde implementatie van de PI-regelaar behouden we het datapad
+van de vorige implementatie, en wordt de controle-automaat vervangen
+door een {\em Moore}-machine die we in VHDL beschrijven. Deze
+controle-automaat moet uitwendig hetzelfde gedrag vertonen als de
+gemicroprogrammeerde versie.
+
+Schrijf eerst uit welke toestanden de automaat heeft, en welke de
+uitgangen (controlepunten) zijn die bij elke toestand behoren. Je kan
+dit afleiden uit de inhoud van de microcode-ROM, of uit de simulatie
+van het vorige onderdeel. Duid aan of sommige uitgangen {\em don't
+care}'s bevatten.
+
+Vul vervolgens de VHDL-code van de controle-automaat aan. Het datapad
+kopieer je uit de vorige opgave. Controleer de correctheid m.b.v.\
+ActiveHDL.
+
+
+\subsection{Getalbereik en fixed point getallen}
+{\em Voorziene tijd: 70 minuten} \\
+{\em Map: opgave7}
+
+In deze oefening zullen we nagaan wat de optimale voostelling is van
+de getallen in het PI-algoritme.  Tot nu toe zijn we er blindelings
+van uitgegaan dat alle getalwaarden voorgesteld konden worden als
+16-bit gehele getallen. Daardoor is het niet gegarandeerd dat de
+schakeling correct zal werken. Indien er te weining bits zijn om een
+getal voor te stellen wordt het resultaat minder nauwkeurig als de
+minstbeduidende bits wegvallen, of er kan overflow optreden (en het
+resultaat zal totaal fout zijn) als de meestbeduidende bits
+wegvallen. Wanneer er onnodig veel bits gebruikt worden, worden de
+operatoren breder, waardoor de schakeling onnodig groot en traag
+wordt.
+
+Daarnaast kan het ook voorkomen dat de schakeling kommagetallen moet
+verwerken, waarvoor het gehele getaltype niet zomaar bruikbaar is.
+Vermits vlottende-kommagetallen (floating point) niet zeer geschikt
+zijn voor logische synthese, zullen we voor deze opgave gebruik maken
+van vaste-kommagetallen (fixed point). Achteraf zullen we de
+vaste-kommagetallen op hun beurt op gehele getallen afbeelden.  Uitleg
+over vaste-kommagetallen vind je o.a.\ op \\ 
+\small{\url{http://www-inst.eecs.berkeley.edu/~cs61c/sp06/handout/fixedpt.html}}.
+
+\normalsize{Eerst zullen we analyseren hoe we elk van de getallen in het ontwerp
+(ingangen, registers, tussenresultaten \ldots) kunnen voorstellen. We
+gaan uit van een {\em signed} fixed point notatie, voor elk getal
+wordt dus een tekenbit voorzien. Nu moeten we voor elk getal het
+totaal aantal bits en het aantal bits na de komma bepalen. }
+
+Als basis gebruiken we het circuit uit paragraaf
+\ref{sec:opgave_oint}.  Van de ingangen $PV$ en $SP$ veronderstellen
+we dat ze een afstand voorstellen die kan vari\"eren van +1m tot -1m,
+en dat we die afstand tot op 1mm nauwkeurig willen voorstellen. Voor
+de uitgangen kies je hetzelfde totaal aantal bits; het aantal bits na
+de komma kan verschillen. Voor interne tussenresultaten neem je in het
+totaal 4 bits meer dan voor de in- en uitgangen, tenzij wanneer dat
+niet zinvol is. voor de regelconstanten $F1$ en $C$ kies je aantallen
+bits zodat je waarden in de orde van -.001 \ldots .001 kan voorstellen
+met max.\ 1\% relatieve fout. {\em Bepaal voor elk van de ingangen,
+inwendige signalen, registers en uitgangen de aantallen bits (totaal
+en fractioneel) van de fixed point-getallen}.
+
+In VHDL is de ondersteuning van fixed-point nog in ontwikkeling. Er
+bestaat een package met signed en unsigned fixed point datatypes \\ ({\tt
+ieee\_proposed.fixed\_pkg}), maar dat wordt niet door alle tools
+ondersteund. In de plaats daarvan kunnen ook de signed en unsigned
+datatypes gebruikt worden. De bewerkingen zijn ongeveer dezelfde,
+alleen moet de ontwerper dan zelf bijhouden waar de komma staat en
+waar nodig operandi aligneren. Het verschuiven van de komma komt neer
+op het vermenigvuldigen van de getallen met een macht van 2. {\em Pas
+de VHDL-code uit opgave 4 aan voor de eerder gevonden
+getalrepresentaties: zowel de regelaar als de testbank. Stel
+$F1=0.0001$ en $C=-0.0004$. Controleer door simulatie dat de
+schakeling correct werkt}.
+
+\newpage
+
+\appendix
+\section{Gebruik van Aldec ActiveHDL}
+
+Aldec ActiveHDL werd reeds in de cursus Digitale Elektronica gebruikt,
+wat hier volgt zijn nog enkele aandachtspunten.
+
+Om de bestanden te organiseren maak je in ActiveHDL \'e\'en workspace
+aan (op je {\tt H:}-schijf) en vervolgens {\em voor elke opgave een
+nieuw design} in die werkruimte. Bij het aanmaken van een nieuw
+ontwerp kies je de optie {\tt Add existing Resource Files}. Selecteer
+alle VHDL- en geheugenfiles uit de opgavemap (extensies {\tt .vhd} en
+{\tt .mif}). Hou er rekening mee dat ActiveHDL die bestanden naar het
+project {\em kopieert}, aanpassingen moet je dus maken in de
+ActiveHDL-workspace en niet op de originele locatie (waar je het
+zip-archief uitgepakt hebt).
+
+Als je van Sigasi HDT gebruik wil maken moet je eerst een design
+aanmaken in ActiveHDL en daarna dat ontwerp in HDT importeren -- niet
+omgekeerd.
+
+\section{Gebruik van Sigasi HDT}
+
+Sigasi Hardware Development Tool (HDT) wordt ontwikkeld door een
+Gentse KMO.  Deze editor analyseert de VHDL-code en kan op
+verschillende gebieden hulp bieden bij de ontwikkeling van
+hardware. Zo worden bijvoorbeeld syntaxfouten en niet gedeclareerde
+symbolen aangeduid, kan je navigeren doorheen de code, indenteren,
+{\em refactoring} toepassen...
+
+HDT is niet ge\"{\i}nstalleerd in de PC-klas, maar je kan dit zelf
+snel installeren. De zip-file met HDT vind je op minerva. Pak dit bij
+voorkeur uit op de {\tt H:}-schijf (zodat je het de volgende keer niet
+opnieuw moet installeren). Alle bestanden komen in de map {\tt sigasi}
+terecht. Om HDT op te starten dubbelklik je {\tt sigasi.exe}.
+
+De eerste keer moet je een paar zaken instellen. Eerst moet je een
+workspace kiezen: accepteer wat ingevuld is en klik OK. Dan krijg je
+een welkom-pagina te zien die je mag sluiten (get started). Daarna
+moet je de licentie instellen: navigeer naar {\tt window $\rightarrow$
+preferences $\rightarrow$ VHDL $\rightarrow$ License Key} en plak of
+typ de licentiesleutel {\tt 27011@deugniet.elis.UGent.be} in het
+tekstvenster. Klik daarna op {\tt Apply} en vervolgens {\tt OK}.
+
+Voor elk deel van de opgave moet je een apart project aanmaken in
+hdt. Omdat ActiveHDL van een eigen mappenstructuur gebruik maakt moet
+je eerst een project in Aldec aanmaken (zie boven) en dan pas die
+bestanden in HDT importeren. Procedure voor HDT: {\tt File
+$\rightarrow$ New $\rightarrow$ Point to existing VHDL project}.
+Navigeer naar de {\tt src}-map van het ActiveHDL-project en klik {\tt
+Finish}. Het nieuw aangemaakte project heeft de naam {\tt src}
+gekregen, dit {\em moet} je veranderen door in de Project Explorer
+(linker paneel) het project te selecteren en dan via {\tt F2} of {\tt
+rechtsklik $\rightarrow$ Rename} een {\em zinvolle} naam te geven.
+
+Voor delen 5 en 7 van de opgave zal je zien dat er 2 fouten in de code
+van het rom-geheugen gerapporteerd worden.  HDT heeft immers geen
+beschrijving van de geheugenmodules van Xilinx, dus moeten we een
+verwijzing maken naar de plaats waat HDT die kan vinden.  Open het
+bestand met de fout erin en klik op het {\em quick fix}-icoontje links
+van de regel {\tt library XilinxCoreLib}.  Kies de optie {\tt Define
+undefined library}. In het popup-venster selecteer je de
+niet-gedefinieerde locatie en klik {\tt edit}. Kies in de volgende
+pop-up {\tt Select external folder} en navigeer naar {\tt
+C:$\backslash$Xilinx91i$\backslash$vhdl$\backslash$src$\backslash$XilinxCoreLib}.
+Daarmee zouden beide fouten m.b.t. het ram-geheugen opgelost moeten
+zijn.
+
+%% \section{Gebruik van Xilinx ISE}
+
+%% Xilinx ISE is een synthesetool, d.i.\ een software-pakket dat een gedragsbeschrijving in VHDL
+%% vertaalt in een netlijst met basiscomponenten uit de gekozen technologie (in het geval van
+%% ISE: bouwblokken van een Xilinx-FPGA) en de verbindingen tussen die componenten.
+%% ISE werd reeds gebruikt in de practica bij het vak ``digitale elektronica''.
+
+%% Om een netlijst te synthetiseren in ISE ga je als volgt te werk:
+
+%% \begin{itemize}
+
+%% \item open project navigator 
+
+%% \item maak een nieuw project aan voor elk onderdeel van de opgave:
+
+%% \begin{itemize}
+%% \item {\tt file} $\rightarrow$ {\tt new project\ldots} 
+%% \item Vul in: eerst de Project Location (bvb.\ {\tt C:$\backslash$temp}), dan Project Name ({\tt opgave{\em x}}), 
+%% Source Type is {\tt HDL}.
+%% \item In het volgende scherm: Family {\tt Virtex2P}, Device {\tt XC2VP30}, \\ Speed Grade {\tt -7}.
+%% \item Create a new source: klik {\tt next}.
+%% \item Add existing sources: klik op Add Source, en voeg alle vhdl- , ucf- en xco-files toe behalve de testbank 
+%% (VHDL uit de ActiveHDL-map, 
+%% UCF en XCO uit het uitgepakte zip-archief). Voor de VHDL-code moet je de optie {\tt Copy to Project} afzetten.
+
+%% \end{itemize}
+
+%% \item klik in het venster linksboven (module view) op de de 
+%% topniveau-module {\tt piregelaar-\ldots};
+%% \item in het venster daaronder (process view), klik rechts op {\tt 
+%% implement design} en kies {\tt run}.
+%% \end{itemize}
+
+%% De VHDL-code wordt dan gesynthetiseerd, en de netlijst wordt geplaatst 
+%% (d.w.z.\ de componenten uit de netlijst krijgen een plaats toegewezen op
+%% de chip) en gerouteerd (de verbindingen worden gelegd). Waar er gebruik 
+%% gemaakt is van rom-geheugens (opgave 5 en 7) moet dat geheugen de eerste 
+%% keer opnieuw gegenereerd worden (de software zal vragen om dit te doen). 
+
+%% In het console-venster kan je zien welke stappen de software genomen 
+%% heeft, en hoeveel flip-flops enz.\ er gebruikt worden (tabel aanvullen).
+%% In het Fpga Design Summary-venster kan je allerlei rapporten selecteren,
+%% o.a.\ het {\em mapping}-rapport dat een overzicht van de gebruikte 
+%% FPGA-cellen bevat en het {\em static timing}-rapport.
+
+%% Wanneer geen eisen qua timing opgelegd worden, doet de software geen 
+%% enkele moeite om de timing te optimaliseren. Door een klokperiode op te 
+%% geven (of andere timing-{\em constraints}) kan de software gedwongen 
+%% worden om plaatsing en routering aan te passen zodat aan die eisen voldaan 
+%% wordt. Wanneer zeer strikte eisen opgelegd worden -- die niet 
+%% realiseerbaar zijn -- zal de software dit rapporteren en de 
+%% optimalisatiepogingen stop zetten. Het snelste circuit wordt gevonden 
+%% wanneer eisen opgelegd worden die net niet haalbaar zijn: de software doet 
+%% dan een maximale inspanning.
+
+%% Na de eerste synthese kan je de reeds gehaalde klokperiode uit het {\em 
+%% timing report} aflezen en een kleinere waarde opleggen om de optimalisatie
+%% te laten werken. 
+
+%% \begin{itemize}
+%% \item selecteer de topniveau-entity (module view);
+%% \item {\tt process view $\rightarrow$ User constraints $\rightarrow$
+%% Create timing \\ constraints};
+%% \item vul de vooropgestelde klokperiode in, zonder eenheden (eenheid is 
+%% ns), daarna {\tt TAB};
+%% \item {\tt File $\rightarrow$ Save}, {\tt File $\rightarrow$ Exit} in 
+%% constraints editor;
+%% \item laat de synthesestap opnieuw lopen ({\tt Implement design 
+%% $\rightarrow$ Run}).
+%% \end{itemize}
+
+%% In het console-venster kan je zien welke stappen de router doorloopt.
+%% Wanneer je ziet dat fase 8 en volgende gestart worden, weet je dat de 
+%% uitgebreide optimalisatie gestart werd. Eventueel kan je de 
+%% optimalisatie een paar keer herhalen om ``het onderste uit de kan''
+%% te halen.
+
